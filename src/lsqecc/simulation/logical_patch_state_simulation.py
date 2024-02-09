@@ -17,7 +17,6 @@
 import enum
 import itertools
 import math
-import random
 import uuid
 from collections import deque
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, cast
@@ -30,6 +29,7 @@ from lsqecc.pauli_rotations import PauliOperator
 from lsqecc.simulation.lazy_tensor_op import LazyTensorOp, tensor_list
 
 from .qubit_state import DefaultSymbolicStates, SymbolicState
+import secrets
 
 
 class ConvertersToQiskit:
@@ -136,8 +136,7 @@ T = TypeVar("T")
 
 def proportional_choice(assoc_data_prob: List[Tuple[T, float]]) -> T:
     """Used to sample measurement outcomes"""
-    return random.choices(
-        [val for val, prob in assoc_data_prob], weights=[prob for val, prob in assoc_data_prob], k=1
+    return secrets.SystemRandom().choices([val for val, prob in assoc_data_prob], weights=[prob for val, prob in assoc_data_prob], k=1
     )[0]
 
 
