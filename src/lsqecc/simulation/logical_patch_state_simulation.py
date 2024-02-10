@@ -35,6 +35,16 @@ import secrets
 class ConvertersToQiskit:
     @staticmethod
     def pauli_op(op: PauliOperator) -> Optional[qkop.OperatorBase]:
+        """ if op in known_map else None
+        Returns the corresponding qiskit operator for the given PauliOperator, or None if not found.
+        Parameters:
+            - op (PauliOperator): The PauliOperator to find the corresponding qiskit operator for.
+        Returns:
+            - Optional[qkop.OperatorBase]: The corresponding qiskit operator for the given PauliOperator, or None if not found.
+        Processing Logic:
+            - Uses a dictionary to map PauliOperators to qiskit operators.
+            - Returns the mapped operator if found, otherwise returns None."""
+        
         known_map: Dict[PauliOperator, qkop.OperatorBase] = {
             PauliOperator.I: qkop.I,
             PauliOperator.X: qkop.X,
@@ -45,6 +55,20 @@ class ConvertersToQiskit:
 
     @staticmethod
     def symbolic_state(s: SymbolicState) -> qkop.StateFn:
+        """Returns a qkop.StateFn object representing the symbolic state s.
+        Parameters:
+            - s (SymbolicState): The symbolic state to be converted.
+        Returns:
+            - qkop.StateFn: A qkop.StateFn object representing the symbolic state s.
+        Processing Logic:
+            - Get amplitudes from DefaultSymbolicStates.
+            - Multiply amplitudes with qkop.Zero and qkop.One.
+            - Return the resulting qkop.StateFn object.
+        Example:
+            >>> s = SymbolicState('000')
+            >>> symbolic_state(s)
+            StateFn(0.7071067812 * Zero + 0.7071067812 * One)"""
+        
         zero_ampl, one_ampl = DefaultSymbolicStates.get_amplitudes(s)
         return zero_ampl * qkop.Zero + one_ampl * qkop.One
 
@@ -73,6 +97,18 @@ class ProjectiveMeasurement:
     def borns_rule(projector: qkop.OperatorBase, state: qkop.OperatorBase) -> float:
         # https://qiskit.org/documentation/tutorials/operators/01_operator_flow.html#listop
         def compute_states(s):
+        """Computes the Born's rule for a given projector and state.
+        Parameters:
+            - projector (qkop.OperatorBase): The projector operator.
+            - state (qkop.OperatorBase): The state operator.
+        Returns:
+            - float: The result of the Born's rule computation.
+        Processing Logic:
+            - Convert the state to a matrix operator.
+            - Evaluate the state using the compute_states function.
+            - Adjoint the projector.
+            - Evaluate the adjointed projector using the compute_states function."""
+        
             return s.to_matrix_op().eval()
 
         return cast(float, qkop.StateFn(projector).adjoint().eval(compute_states(state)))
@@ -80,6 +116,19 @@ class ProjectiveMeasurement:
     @staticmethod
     def compute_outcome_state(
         projector: qkop.OperatorBase, state_before_measurement: qkop.OperatorBase
+        """Computes the outcome state and probability of a projective measurement on a given state.
+        Parameters:
+            - projector (qkop.OperatorBase): The projector used for the measurement.
+            - state_before_measurement (qkop.OperatorBase): The state before the measurement.
+        Returns:
+            - Tuple[qkop.DictStateFn, float]: The outcome state and probability of the measurement.
+        Processing Logic:
+            - Compute the probability using Born's rule.
+            - Assert that the imaginary part of the probability is negligible.
+            - Apply the projector to the state and normalize the resulting state.
+            - If the resulting state is not a DictStateFn, convert it to one.
+            - Return the outcome state and probability as a tuple."""
+        
     ) -> Tuple[qkop.DictStateFn, float]:
         prob = ProjectiveMeasurement.borns_rule(projector, state_before_measurement)
         assert prob.imag < 10 ** (-8)
@@ -98,6 +147,16 @@ class ProjectiveMeasurement:
     @staticmethod
     def get_projectors_from_pauli_observable(
         pauli_observable: qkop.OperatorBase,
+        """"Returns a tuple of two operators that represent the projector onto the +1 and -1 eigenspaces of the given Pauli observable."
+        Parameters:
+            - pauli_observable (qkop.OperatorBase): The Pauli observable for which projectors are to be generated.
+        Returns:
+            - Tuple[qkop.OperatorBase, qkop.OperatorBase]: A tuple containing two operators representing the projectors onto the +1 and -1 eigenspaces of the given Pauli observable.
+        Processing Logic:
+            - Generates the identity operator with the same number of qubits as the given Pauli observable.
+            - Divides the sum and difference of the identity and the Pauli observable by 2 to obtain the projectors.
+            - Returns the projectors as a tuple."""
+        
     ) -> Tuple[qkop.OperatorBase, qkop.OperatorBase]:
         eye = qkop.I ^ pauli_observable.num_qubits
         return (eye + pauli_observable) / 2, (eye - pauli_observable) / 2
@@ -105,6 +164,19 @@ class ProjectiveMeasurement:
     @staticmethod
     def pauli_product_measurement_distribution(
         pauli_observable: qkop.OperatorBase, state: qkop.OperatorBase
+        """This function calculates the measurement distribution for a given Pauli observable and state.
+        Parameters:
+            - pauli_observable (qkop.OperatorBase): The Pauli observable used for the measurement.
+            - state (qkop.OperatorBase): The state on which the measurement is performed.
+        Returns:
+            - List[Tuple[BinaryMeasurementOutcome, float]]: A list of tuples containing the binary measurement outcome and its corresponding probability.
+        Processing Logic:
+            - Calculates the projectors for the given Pauli observable.
+            - Computes the outcome state and probability for each projector.
+            - Converts the outcome state to a dictionary function if necessary.
+            - Raises an exception if the composed operators do not evaluate to a single state.
+            - Appends the binary measurement outcome and its probability to the output list if the probability is greater than 10^-8."""
+        
     ) -> List[Tuple[BinaryMeasurementOutcome, float]]:
         p_plus, p_minus = ProjectiveMeasurement.get_projectors_from_pauli_observable(
             pauli_observable
@@ -142,12 +214,39 @@ def proportional_choice(assoc_data_prob: List[Tuple[T, float]]) -> T:
 
 class PatchToQubitMapper:
     def __init__(self, logical_computation: llops.LogicalLatticeComputation):
+        """ + 1
+        "Initialize the PatchToQubitMapper object with a logical computation and create a dictionary mapping patch locations to their corresponding logical index.
+        Parameters:
+            - logical_computation (llops.LogicalLatticeComputation): The logical computation to be used for mapping patches to their logical index.
+        Returns:
+            - None
+        Processing Logic:
+            - Create a dictionary to store the mapping.
+            - Loop through all operating patches in the logical computation.
+            - If the patch location is not already in the dictionary, add it with a corresponding logical index.
+            - The logical index is incremented by 1 for each new patch location.
+        Example:
+            mapper = PatchToQubitMapper(logical_computation)
+            print(mapper.patch_location_to_logical_idx)
+            # Output: {patch_location1: logical_index1, patch_location2: logical_index2, ...}""""
+        
         self.patch_location_to_logical_idx: Dict[uuid.UUID, int] = dict()
         for p in PatchToQubitMapper._get_all_operating_patches(logical_computation):
             if self.patch_location_to_logical_idx.get(p) is None:
                 self.patch_location_to_logical_idx[p] = self.max_num_patches()
 
     def get_idx(self, patch: uuid.UUID) -> int:
+        """Returns the logical index of a given patch.
+        Parameters:
+            - patch (uuid.UUID): The patch to get the logical index of.
+        Returns:
+            - int: The logical index of the given patch.
+        Processing Logic:
+            - Get the logical index of the given patch.
+            - Uses the patch_location_to_logical_idx dictionary.
+            - Returns the value from the dictionary.
+            - Only works if the patch is in the dictionary."""
+        
         return self.patch_location_to_logical_idx[patch]
 
     def max_num_patches(self) -> int:
@@ -155,17 +254,64 @@ class PatchToQubitMapper:
 
     def get_uuid(self, target_idx: int) -> uuid.UUID:
         for quiid, idx in self.patch_location_to_logical_idx.items():
+        """Returns the number of patches in the dataset.
+        Parameters:
+            - self (object): The dataset object.
+        Returns:
+            - int: The number of patches in the dataset.
+        Processing Logic:
+            - Get the length of the dictionary.
+            - Dictionary contains patch locations and logical indices.
+            - The length of the dictionary is the number of patches.
+            - Returns an integer value."""
+        
+        """Returns:
+            - uuid.UUID: Returns the UUID of the patch at the specified index.
+        Parameters:
+            - target_idx (int): The index of the patch to retrieve the UUID for.
+        Processing Logic:
+            - Loop through the dictionary of patch locations and logical indices.
+            - If the logical index matches the target index, return the UUID.
+            - If no match is found, raise an exception.
+        Example:
+            - get_uuid(3) # returns UUID of patch at index 3"""
+        
             if idx == target_idx:
                 return quiid
         raise Exception(f"Patch with idx {target_idx} not found")
 
     def enumerate_patches_by_index(self) -> Iterable[Tuple[int, uuid.UUID]]:
         for idx in range(self.max_num_patches()):
+        """"Yields an iterable of tuples containing the index and UUID of each patch in the object.
+        Parameters:
+            - self (object): The object containing the patches.
+        Returns:
+            - Iterable[Tuple[int, uuid.UUID]]: An iterable of tuples containing the index and UUID of each patch.
+        Processing Logic:
+            - Iterates through the range of the maximum number of patches.
+            - Yields a tuple containing the index and UUID of each patch.
+            - Uses the get_uuid method to retrieve the UUID of each patch.
+            - Returns an iterable of tuples containing the index and UUID of each patch.
+        Example:
+            obj = Object()
+            for idx, uuid in obj.enumerate_patches_by_index():
+                print(f"Patch at index {idx} has UUID {uuid}")"""
+        
             yield (idx, self.get_uuid(idx))
 
     @staticmethod
     def _get_all_operating_patches(
         logical_computation: llops.LogicalLatticeComputation,
+        """"Returns a list of all patches used in the logical computation, including patches used by logical qubits and ancilla patches."
+        Parameters:
+            - logical_computation (llops.LogicalLatticeComputation): An instance of LogicalLatticeComputation class representing the logical computation.
+        Returns:
+            - List[uuid.UUID]: A list of UUIDs representing the patches used in the logical computation.
+        Processing Logic:
+            - Get all patches used by logical qubits.
+            - Add ancilla patches used by each operation.
+            - Return a list of all unique patches."""
+        
     ) -> List[uuid.UUID]:
         # Add the patches used logical qubits
         patch_list = list(logical_computation.logical_qubit_uuid_map.values())
@@ -187,10 +333,30 @@ class SimulatorType(enum.Enum):
 
 class PatchSimulator:
     def __init__(self, logical_computation: llops.LogicalLatticeComputation):
+        """This function initializes an instance of the class with a logical computation and creates a mapper object for patch to qubit mapping.
+        Parameters:
+            - logical_computation (llops.LogicalLatticeComputation): An instance of the LogicalLatticeComputation class.
+        Returns:
+            - None
+        Processing Logic:
+            - Initialize instance with logical computation.
+            - Create mapper object for patch to qubit mapping."""
+        
         self.logical_computation = logical_computation
         self.mapper = PatchToQubitMapper(logical_computation)
 
     def apply_logical_operation(self, logical_op: llops.LogicalLatticeOperation):
+        """"Applies a logical operation to the given lattice and returns the result.
+        Parameters:
+            - logical_op (llops.LogicalLatticeOperation): The logical operation to be applied to the lattice.
+        Returns:
+            - llops.LogicalLatticeOperation: The result of applying the logical operation to the lattice.
+        Processing Logic:
+            - Raise NotImplementedError if the function is not implemented.
+            - The logical operation must be of type LogicalLatticeOperation.
+            - The result will also be of type LogicalLatticeOperation.
+            - The result will be the lattice after the logical operation is applied.""""
+        
         raise NotImplementedError
 
     def get_separable_states(self) -> Dict[uuid.UUID, Optional[qkop.DictStateFn]]:
@@ -201,6 +367,19 @@ class PatchSimulator:
     def make_simulator(
         simulator_type: SimulatorType, logical_computation: llops.LogicalLatticeComputation
     ):
+        """"Creates a simulator object based on the specified simulator type and logical computation.
+        Parameters:
+            - simulator_type (SimulatorType): The type of simulator to be created.
+            - logical_computation (llops.LogicalLatticeComputation): The logical computation to be used by the simulator.
+        Returns:
+            - Simulator object: The created simulator object.
+        Processing Logic:
+            - Creates a simulator object based on the specified simulator type.
+            - Uses the given logical computation for the created simulator.
+            - If the simulator type is LAZY_TENSOR, returns a LazyTensorPatchSimulator object.
+            - If the simulator type is NOOP, returns a NoOpSimulator object.
+            - If the simulator type is not recognized, returns a FullStateVectorPatchSimulator object.""""
+        
         if simulator_type == SimulatorType.LAZY_TENSOR:
             return LazyTensorPatchSimulator(logical_computation)
         elif simulator_type == SimulatorType.NOOP:
@@ -211,6 +390,16 @@ class PatchSimulator:
 
 class FullStateVectorPatchSimulator(PatchSimulator):
     def __init__(self, logical_computation: llops.LogicalLatticeComputation):
+        """Initializes a FullStateVectorPatchSimulator object with a given logical computation.
+        Parameters:
+            - logical_computation (llops.LogicalLatticeComputation): The logical computation to be used for the simulator.
+        Returns:
+            - None
+        Processing Logic:
+            - Initialize FullStateVectorPatchSimulator object.
+            - Call _make_initial_logical_state() method.
+            - Assign result to self.logical_state attribute."""
+        
         super(FullStateVectorPatchSimulator, self).__init__(logical_computation)
         self.logical_state: qkop.DictStateFn = self._make_initial_logical_state()
 
@@ -291,6 +480,17 @@ class FullStateVectorPatchSimulator(PatchSimulator):
             logical_op.set_outcome(outcome.corresponding_eigenvalue)
 
     def get_separable_states(self) -> Dict[uuid.UUID, Optional[qkop.DictStateFn]]:
+        """This function returns a dictionary of separable states, with their corresponding UUIDs as keys and the separable states as values.
+        Parameters:
+            - self (type): The object that the function is being called on.
+        Returns:
+            - Dict[uuid.UUID, Optional[qkop.DictStateFn]]: A dictionary of separable states, with their corresponding UUIDs as keys and the separable states as values.
+        Processing Logic:
+            - Returns a dictionary of separable states.
+            - Uses the StateSeparator class to get separable qubits from the logical state.
+            - Uses the mapper to get the UUID for each separable state.
+            - Only includes states that are not None."""
+        
         separable_states_by_index: Dict[
             int, qkop.DictStateFn
         ] = qkutil.StateSeparator.get_separable_qubits(self.logical_state)
@@ -305,6 +505,17 @@ class FullStateVectorPatchSimulator(PatchSimulator):
 
 class LazyTensorPatchSimulator(PatchSimulator):
     def __init__(self, logical_computation: llops.LogicalLatticeComputation):
+        """Creates a LazyTensorPatchSimulator object with a given logical computation.
+        Parameters:
+            - logical_computation (llops.LogicalLatticeComputation): The logical computation to be used.
+        Returns:
+            - LazyTensorPatchSimulator: An instance of the LazyTensorPatchSimulator class.
+        Processing Logic:
+            - Creates a LazyTensorPatchSimulator object.
+            - Inherits from the super class.
+            - Initializes the logical_state attribute.
+            - Calls the _make_initial_logical_state() method."""
+        
         super(LazyTensorPatchSimulator, self).__init__(logical_computation)
         self.logical_state: LazyTensorOp[qkop.StateFn] = self._make_initial_logical_state()
 
@@ -450,10 +661,32 @@ class LazyTensorPatchSimulator(PatchSimulator):
         return len(involved_operand_idxs)
 
     def align_state_with_pauli_op_to_first_operand(self, logical_op: llops.MultiBodyMeasurement):
+        """Aligns the state with the Pauli operator to the first operand.
+        Parameters:
+            - logical_op (llops.MultiBodyMeasurement): The logical operator to align the state with.
+        Returns:
+            - None: The state is aligned with the Pauli operator.
+        Processing Logic:
+            - Bring active operands to front.
+            - Merge the first n operands.
+            - n operands = number of operands - 1."""
+        
         n_operands = self.bring_active_operands_to_front(logical_op)
         self.logical_state.merge_the_first_n_operands(n_operands - 1)
 
     def get_separable_states(self) -> Dict[uuid.UUID, qkop.DictStateFn]:
+        """Returns a dictionary of separable states for each patch ID.
+        Parameters:
+            - self (type): Instance of a class.
+        Returns:
+            - separable_states (Dict[uuid.UUID, qkop.DictStateFn]): Dictionary of separable states for each patch ID.
+        Processing Logic:
+            - Loop through each operand in the logical state.
+            - Get the separable states for each operand.
+            - Loop through each separable state and add it to the dictionary with its corresponding patch ID.
+            - Increment the operand offset by the number of qubits in the current operand.
+            - Return the dictionary of separable states."""
+        
 
         separable_states: Dict[uuid.UUID, qkop.DictStateFn] = {}
 
