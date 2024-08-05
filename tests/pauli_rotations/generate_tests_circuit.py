@@ -50,9 +50,9 @@ def generate_tests_circuit_has_measurements() -> List[Tuple[PauliOpCircuit, bool
     ]
 
 
-def generate_tests_are_commuting() -> List[
-    Tuple[Union[PauliRotation, Measurement], Union[PauliRotation, Measurement], bool]
-]:
+def generate_tests_are_commuting() -> (
+    List[Tuple[Union[PauliRotation, Measurement], Union[PauliRotation, Measurement], bool]]
+):
     tests_list: List[
         Tuple[Union[PauliRotation, Measurement], Union[PauliRotation, Measurement], bool]
     ] = list()
@@ -143,9 +143,9 @@ def generate_tests_apply_transformation() -> List[Tuple[PauliOpCircuit, PauliOpC
     return tests_list
 
 
-def generate_tests_join_same_qubit_num() -> List[
-    Tuple[PauliOpCircuit, PauliOpCircuit, PauliOpCircuit]
-]:
+def generate_tests_join_same_qubit_num() -> (
+    List[Tuple[PauliOpCircuit, PauliOpCircuit, PauliOpCircuit]]
+):
 
     tests_list = list()
     c1 = PauliOpCircuit(4)
