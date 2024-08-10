@@ -17,6 +17,7 @@
 import enum
 import itertools
 import math
+import secrets
 import uuid
 from collections import deque
 from typing import Dict, Iterable, List, Optional, Tuple, TypeVar, cast
@@ -29,7 +30,6 @@ from lsqecc.pauli_rotations import PauliOperator
 from lsqecc.simulation.lazy_tensor_op import LazyTensorOp, tensor_list
 
 from .qubit_state import DefaultSymbolicStates, SymbolicState
-import secrets
 
 
 class ConvertersToQiskit:
@@ -89,9 +89,11 @@ class ProjectiveMeasurement:
             math.sqrt(prob) if prob > 0 else 1
         )
         return (
-            state_after_measurement
-            if isinstance(state_after_measurement, qkop.DictStateFn)
-            else state_after_measurement.eval().to_dict_fn(),
+            (
+                state_after_measurement
+                if isinstance(state_after_measurement, qkop.DictStateFn)
+                else state_after_measurement.eval().to_dict_fn()
+            ),
             prob,
         )
 
@@ -136,7 +138,8 @@ T = TypeVar("T")
 
 def proportional_choice(assoc_data_prob: List[Tuple[T, float]]) -> T:
     """Used to sample measurement outcomes"""
-    return secrets.SystemRandom().choices([val for val, prob in assoc_data_prob], weights=[prob for val, prob in assoc_data_prob], k=1
+    return secrets.SystemRandom().choices(
+        [val for val, prob in assoc_data_prob], weights=[prob for val, prob in assoc_data_prob], k=1
     )[0]
 
 
@@ -291,9 +294,9 @@ class FullStateVectorPatchSimulator(PatchSimulator):
             logical_op.set_outcome(outcome.corresponding_eigenvalue)
 
     def get_separable_states(self) -> Dict[uuid.UUID, Optional[qkop.DictStateFn]]:
-        separable_states_by_index: Dict[
-            int, qkop.DictStateFn
-        ] = qkutil.StateSeparator.get_separable_qubits(self.logical_state)
+        separable_states_by_index: Dict[int, qkop.DictStateFn] = (
+            qkutil.StateSeparator.get_separable_qubits(self.logical_state)
+        )
         return dict(
             [
                 (self.mapper.get_uuid(idx), state)

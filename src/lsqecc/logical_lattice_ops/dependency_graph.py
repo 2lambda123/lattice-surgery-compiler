@@ -66,6 +66,7 @@ class DependencyGraph:
         Build a dependency tree from a Pauli rotation circuit based on commutation.
 
         """
+
         # This because new dependency is added between non-commuting operations
         def func(arg1, arg2):
             return not PauliOpCircuit.are_commuting(arg1, arg2)
