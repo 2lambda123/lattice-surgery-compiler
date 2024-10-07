@@ -6,12 +6,12 @@ default_language_version:
 ci:
   autofix_prs: false
 
-default_stages: [commit, push]
+default_stages: [Nonepre-commitNone, Nonepre-pushNone]
 exclude: (^debug/|^docs/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-case-conflict
       - id: check-docstring-first
